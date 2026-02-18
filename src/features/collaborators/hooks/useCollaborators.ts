@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getCollaborators } from '../services/collaboratorService';
+import { getErrorMessage } from '../services/errorMessage';
 import type { Collaborator } from '../types/collaborator';
 
 export function useCollaborators() {
@@ -14,8 +15,9 @@ export function useCollaborators() {
     try {
       const data = await getCollaborators();
       setCollaborators(data);
-    } catch {
-      setError('Erro ao carregar colaboradores. Verifique a configuração do Firebase.');
+    } catch (error) {
+      console.error('Erro ao carregar colaboradores no Firestore:', error);
+      setError(`Erro ao carregar colaboradores (${getErrorMessage(error)}).`);
     } finally {
       setLoading(false);
     }

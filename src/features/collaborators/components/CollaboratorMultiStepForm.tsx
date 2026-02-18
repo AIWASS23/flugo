@@ -1,8 +1,12 @@
-import { LinearProgress, Stack, Typography } from '@mui/material';
+import { Alert, LinearProgress, Stack, Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCollaborator } from '../services/collaboratorService';
+import {
+  collaboratorEmailExists,
+  createCollaborator
+} from '../services/collaboratorService';
+import { getErrorMessage } from '../services/errorMessage';
 import type {
   BasicInfoData,
   CreateCollaboratorInput,
@@ -71,16 +75,73 @@ export function CollaboratorMultiStepForm() {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const markEmailAsInUse = () => {
+    setErrors((previous) => ({
+      ...previous,
+      basic: {
+        ...previous.basic,
+        email: 'Este e-mail já está vinculado a outro usuário.'
+      }
+    }));
+    setSubmitError('Este e-mail já está vinculado a outro usuário.');
+  };
+
+  const handleBasicInfoChange = (values: Partial<BasicInfoData>) => {
+    setBasicInfo((previous) => ({ ...previous, ...values }));
+    setSubmitError(null);
+    setErrors((previous) => ({
+      ...previous,
+      basic: {
+        ...previous.basic,
+        ...(values.name !== undefined ? { name: undefined } : {}),
+        ...(values.email !== undefined ? { email: undefined } : {})
+      }
+    }));
+  };
+
+  const handleProfessionalInfoChange = (values: Partial<ProfessionalInfoData>) => {
+    setProfessionalInfo((previous) => ({ ...previous, ...values }));
+    setSubmitError(null);
+    setErrors((previous) => ({
+      ...previous,
+      professional: {
+        ...previous.professional,
+        ...(values.department !== undefined ? { department: undefined } : {})
+      }
+    }));
+  };
+
   const handleNext = async () => {
     if (activeStep === 0) {
       if (!validateBasicInfo()) {
         return;
       }
+
+      try {
+        const emailInUse = await collaboratorEmailExists(basicInfo.email);
+        if (emailInUse) {
+          markEmailAsInUse();
+          return;
+        }
+      } catch (error) {
+        console.error('Erro ao validar e-mail no Firestore:', error);
+        setSubmitError(`Erro ao validar e-mail (${getErrorMessage(error)}).`);
+        return;
+      }
+
+      setSubmitError(null);
       setActiveStep(1);
       return;
     }
 
     if (!validateProfessionalInfo()) {
+      setSubmitError('Selecione um departamento para concluir o cadastro.');
+      return;
+    }
+
+    const department = professionalInfo.department;
+    if (!department) {
+      setSubmitError('Selecione um departamento para concluir o cadastro.');
       return;
     }
 
@@ -92,13 +153,25 @@ export function CollaboratorMultiStepForm() {
         name: basicInfo.name.trim(),
         email: basicInfo.email.trim(),
         active: basicInfo.active,
-        department: professionalInfo.department
+        department
       };
 
       await createCollaborator(payload);
       navigate('/colaboradores');
-    } catch {
-      setSubmitError('Erro ao salvar colaborador. Confira se o Firebase está configurado.');
+    } catch (error) {
+      console.error('Erro ao salvar colaborador no Firestore:', error);
+      const errorMessage = getErrorMessage(error);
+      const duplicateEmail =
+        errorMessage.toLowerCase().includes('already exists') ||
+        errorMessage.toLowerCase().includes('já está vinculado');
+
+      if (duplicateEmail) {
+        setActiveStep(0);
+        markEmailAsInUse();
+        return;
+      }
+
+      setSubmitError(`Erro ao salvar colaborador (${errorMessage}).`);
     } finally {
       setSubmitting(false);
     }
@@ -145,25 +218,17 @@ export function CollaboratorMultiStepForm() {
             <BasicInfoStep
               data={basicInfo}
               errors={errors.basic}
-              onChange={(values) =>
-                setBasicInfo((previous) => ({ ...previous, ...values }))
-              }
+              onChange={handleBasicInfoChange}
             />
           ) : (
             <ProfessionalInfoStep
               data={professionalInfo}
               errors={errors.professional}
-              onChange={(values) =>
-                setProfessionalInfo((previous) => ({ ...previous, ...values }))
-              }
+              onChange={handleProfessionalInfoChange}
             />
           )}
 
-          {submitError ? (
-            <Typography color="error" fontWeight={600}>
-              {submitError}
-            </Typography>
-          ) : null}
+          {submitError ? <Alert severity="error">{submitError}</Alert> : null}
         </Stack>
       </Stack>
 
@@ -182,7 +247,7 @@ export function CollaboratorMultiStepForm() {
           onClick={() => {
             void handleNext();
           }}
-          disabled={submitting}
+          disabled={submitting || (activeStep === steps.length - 1 && !professionalInfo.department)}
           sx={{ minWidth: 150, py: 1.5 }}
         >
           {activeStep === steps.length - 1 ? 'Concluir' : 'Próximo'}
