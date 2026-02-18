@@ -1,55 +1,41 @@
 # Flugo - Cadastro de Colaboradores (Multi-step)
 
-Projeto em React + TypeScript com Material UI para cadastro de funcionários em múltiplas etapas, persistindo dados no Firebase Firestore.
+Aplicação em React + TypeScript com Material UI para cadastro de colaboradores em múltiplas etapas, com persistência no Firebase Firestore.
+
+## Link em produção
+
+- Vercel: <https://flugo-yylb.vercel.app/colaboradores>
 
 ## Stack
 
-- React 19 + TypeScript
+- React 18 + TypeScript
 - Vite
 - Material UI
 - Firebase Firestore
 - React Router
 
-## Estrutura de projeto
-
-```text
-src/
-  app/
-    providers/
-    routes/
-  features/
-    collaborators/
-      components/
-      hooks/
-      pages/
-      services/
-      types/
-  shared/
-    components/
-    layout/
-    theme/
-```
-
-## Requisitos
+## Pré-requisitos
 
 - Node.js 20+
-- Conta Firebase com Firestore habilitado
+- npm 10+
+- Projeto Firebase com Firestore habilitado
 
 ## Como rodar localmente
 
-1. Instale dependências:
+1. Clone o repositório e acesse a pasta do projeto.
+2. Instale as dependências:
 
 ```bash
 npm install
 ```
 
-2. Crie o arquivo `.env` com base no `.env.example`:
+3. Crie o arquivo de ambiente:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Preencha as variáveis do Firebase no `.env`:
+4. Preencha o `.env` com as credenciais do seu app Web no Firebase:
 
 ```env
 VITE_FIREBASE_API_KEY=...
@@ -58,59 +44,47 @@ VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_MEASUREMENT_ID=...
 ```
 
-4. Inicie o projeto:
+5. No Firestore, publique regras para permitir acesso à coleção `collaborators` durante desenvolvimento:
+
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /collaborators/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
+```
+
+6. Inicie o servidor:
 
 ```bash
 npm run dev
 ```
 
-5. Abra `http://localhost:5173`
+7. Acesse:
+- `http://localhost:5173/colaboradores`
+- `http://localhost:5173/colaboradores/novo`
 
-## Firestore
+## Estrutura de dados no Firestore
 
-Crie a coleção `collaborators` no Firestore. Cada documento salvo terá:
+Coleção: `collaborators`
 
+Campos por documento:
 - `name` (string)
 - `email` (string)
+- `emailNormalized` (string)
 - `department` (string)
 - `active` (boolean)
 - `createdAt` (timestamp)
 
-## Validações implementadas
-
-- Todos os campos obrigatórios
-- Validação de formato de e-mail na etapa 1
-- Bloqueio de avanço enquanto a etapa atual estiver inválida
-- Feedback visual por campo
-
-## Deploy remoto (Vercel)
-
-1. Suba o repositório para o GitHub (público):
-
-```bash
-git init
-git add .
-git commit -m "feat: cadastro multi-step colaboradores"
-git branch -M main
-git remote add origin https://github.com/<seu-usuario>/<seu-repo>.git
-git push -u origin main
-```
-
-2. No Vercel:
-- Import Project a partir do GitHub
-- Configure as mesmas variáveis de ambiente do `.env`
-- Deploy
-
 ## Scripts
 
-- `npm run dev`: desenvolvimento
+- `npm run dev`: ambiente local
 - `npm run build`: build de produção
 - `npm run preview`: preview da build
 - `npm run lint`: lint
-
-## Observações
-
-- O layout segue o protótipo fornecido com sidebar, listagem e formulário em 2 etapas.
-- O componente de avatar usa DiceBear para gerar imagem a partir do nome.
